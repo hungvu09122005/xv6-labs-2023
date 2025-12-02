@@ -449,3 +449,45 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+// Recursively print page table entries
+void
+vmprintwalk(pagetable_t pagetable, int level)
+{
+  // There are 2^9 = 512 PTEs in a page table.
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    
+    // Only print valid PTEs
+    if(pte & PTE_V){
+      // Print indentation based on level (.. for level 1, .. .. for level 2, etc.)
+      for(int j = 0; j < level; j++){
+        if(j == 0)
+          printf("..");
+        else
+          printf(" ..");
+      }
+      
+      // Extract physical address from PTE
+      uint64 child = PTE2PA(pte);
+      
+      // Print: index: pte <pte_value> pa <physical_address>
+      printf("%d: pte %p pa %p\n", i, pte, child);
+      
+      // If this PTE points to a lower-level page table (not a leaf),
+      // recursively print it.
+      // A leaf PTE has one or more of PTE_R, PTE_W, PTE_X set.
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        // This PTE points to a lower-level page table.
+        vmprintwalk((pagetable_t)child, level + 1);
+      }
+    }
+  }
+}
+
+void
+vmprint(pagetable_t pagetable)
+{
+  printf("page table %p\n", pagetable);
+  vmprintwalk(pagetable, 1);
+}
